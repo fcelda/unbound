@@ -589,37 +589,22 @@ struct mesh_reply {
    struct comm_reply query_reply;
 };
 
+%rename(_addr) comm_reply::addr;
 struct comm_reply {
-
+   struct sockaddr_storage addr;
 };
-
-%inline %{
-
-  PyObject* _comm_reply_addr_get(struct comm_reply* reply) {
-     return _sockaddr_storage_addr(&reply->addr);
-  }
-
-  PyObject* _comm_reply_family_get(struct comm_reply* reply) {
-     return _sockaddr_storage_family(&reply->addr);
-  }
-
-  PyObject* _comm_reply_port_get(struct comm_reply* reply) {
-     return _sockaddr_storage_port(&reply->addr);
-  }
-
-%}
 
 %extend comm_reply {
    %pythoncode %{
-        def _addr_get(self): return _comm_reply_addr_get(self)
+        def _addr_get(self): return _sockaddr_storage_addr(self._addr)
         __swig_getmethods__["addr"] = _addr_get
         if _newclass:addr = _swig_property(_addr_get)
 
-        def _port_get(self): return _comm_reply_port_get(self)
+        def _port_get(self): return _sockaddr_storage_port(self._addr)
         __swig_getmethods__["port"] = _port_get
         if _newclass:port = _swig_property(_port_get)
 
-        def _family_get(self): return _comm_reply_family_get(self)
+        def _family_get(self): return _sockaddr_storage_family(self._addr)
         __swig_getmethods__["family"] = _family_get
         if _newclass:family = _swig_property(_family_get)
    %}
