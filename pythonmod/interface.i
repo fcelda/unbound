@@ -1573,6 +1573,54 @@ int edns_opt_list_append(struct edns_option** list, uint16_t code, size_t len,
         return python_inplace_cb_register(inplace_cb_reply_servfail,
                 py_cb, env, id);
     }
+
+    int python_inplace_cb_query_generic(
+        struct query_info* qinfo, uint16_t flags, struct module_qstate* qstate,
+        struct sockaddr_storage* addr, socklen_t addrlen,
+        uint8_t* zone, size_t zonelen, struct regional* region, int id,
+        void* python_callback)
+    {
+        int res = 0;
+        PyObject *func = python_callback;
+
+        PyGILState_STATE gstate = PyGILState_Ensure();
+
+        PyObject *py_qinfo = SWIG_NewPointerObj((void*) qinfo, SWIGTYPE_p_query_info, 0);
+        PyObject *py_qstate = SWIG_NewPointerObj((void*) qstate, SWIGTYPE_p_module_qstate, 0);
+        PyObject *py_addr = SWIG_NewPointerObj((void *) addr, SWIGTYPE_p_sockaddr_storage, 0);
+        PyObject *py_zone = PyBytes_FromStringAndSize((const char *)zone, zonelen);
+        PyObject *py_region = SWIG_NewPointerObj((void*) region, SWIGTYPE_p_regional, 0);
+
+        PyObject *py_args = Py_BuildValue("(OiOOOO)", py_qinfo, flags, py_qstate, py_addr, py_zone, py_region);
+        PyObject *py_kwargs = Py_BuildValue("{}");
+        PyObject *result = PyObject_Call(func, py_args, py_kwargs);
+        if (result) {
+            res = PyInt_AsLong(result);
+        }
+
+        Py_XDECREF(py_qinfo);
+        Py_XDECREF(py_qstate);
+        Py_XDECREF(py_addr);
+        Py_XDECREF(py_zone);
+        Py_XDECREF(py_region);
+
+        Py_XDECREF(py_args);
+        Py_XDECREF(py_kwargs);
+        Py_XDECREF(result);
+
+        PyGILState_Release(gstate);
+
+        return res;
+    }
+
+    static int register_inplace_cb_query(PyObject* py_cb,
+        struct module_env* env, int id)
+    {
+        int ret = inplace_cb_register(python_inplace_cb_query_generic,
+                inplace_cb_query, (void*) py_cb, env, id);
+        if (ret) Py_INCREF(py_cb);
+        return ret;
+    }
 %}
 /* C declarations */
 int inplace_cb_register(void* cb, enum inplace_cb_list_type type, void* cbarg,
@@ -1586,4 +1634,6 @@ static int register_inplace_cb_reply_cache(PyObject* py_cb,
 static int register_inplace_cb_reply_local(PyObject* py_cb,
     struct module_env* env, int id);
 static int register_inplace_cb_reply_servfail(PyObject* py_cb,
+    struct module_env* env, int id);
+static int register_inplace_cb_query(PyObject *py_cb,
     struct module_env* env, int id);
